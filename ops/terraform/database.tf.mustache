@@ -1,5 +1,5 @@
 {{#hasDatabase}}
-# Database configuration based on selected database type: {{selectedDatabaseType}}
+# Database configuration based on selected database type: {{databaseType}}
 
 resource "aws_db_subnet_group" "database" {
   name       = "${local.project_name}-${var.environment}-db-subnet-group"
