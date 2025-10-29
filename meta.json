@@ -18,7 +18,7 @@
       "key": "awsRegion",
       "label": "AWS Region",
       "type": "select",
-      "options": ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"],
+      "options": ["us-east-1", "us-west-1", "us-west-2", "eu-west-1", "ap-southeast-1"],
       "default": "us-west-1",
       "required": true,
       "description": "AWS region for deployment",
