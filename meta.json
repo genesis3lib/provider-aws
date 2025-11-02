@@ -111,7 +111,7 @@
     "*.tfstate.*",
     ".terraform.lock.hcl",
     "*.tfvars",
-    "!terraform/environments/*.tfvars",
+    "!**/terraform/environments/*.tfvars",
     "",
     "# AWS",
     "*.pem",
