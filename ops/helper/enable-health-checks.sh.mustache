@@ -29,7 +29,7 @@ for instance_id in $INSTANCE_IDS; do
     command_id=$(aws ssm send-command \
         --instance-ids "$instance_id" \
         --document-name "AWS-RunShellScript" \
-        --parameters 'commands=["curl -f http://localhost:8080/app/v1/health && echo SUCCESS || echo FAILED"]' \
+        --parameters 'commands=["curl -f http://localhost:8080/app/v1/public/health && echo SUCCESS || echo FAILED"]' \
         --region "{{region}}" \
         --query 'Command.CommandId' \
         --output text)
