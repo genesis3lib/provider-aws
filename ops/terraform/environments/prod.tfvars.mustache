@@ -7,7 +7,9 @@ environment = "prod"
 
 # Domain Configuration
 domain_base = "{{domain}}"
-app_id = "{{projectName}}"
+app_id = "{{projectName}}"  # Application/Project ID
+backend_id = "{{backendModule.moduleId}}"  # Backend module ID for API subdomain
+frontend_id = "{{frontendModule.moduleId}}"  # Frontend module ID for UI subdomain
 # domain_name starts empty - will be set by SSL cert workflow after certificate is created
 domain_name = ""
 

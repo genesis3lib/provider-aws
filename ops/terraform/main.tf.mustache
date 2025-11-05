@@ -65,6 +65,6 @@ locals {
   }
 
   # Domain configuration with environment-specific prefix
-  ui_domain = var.environment == "production" ? "${var.app_id}-ui.${var.domain_base}" : "${var.app_id}-${var.environment}-ui.${var.domain_base}"
-  api_domain = var.environment == "production" ? "${var.app_id}-api.${var.domain_base}" : "${var.app_id}-${var.environment}-api.${var.domain_base}"
+  ui_domain = var.environment == "production" ? "${var.frontend_id}-ui.${var.domain_base}" : "${var.frontend_id}-${var.environment}-ui.${var.domain_base}"
+  api_domain = var.environment == "production" ? "${var.backend_id}-api.${var.domain_base}" : "${var.backend_id}-${var.environment}-api.${var.domain_base}"
 }

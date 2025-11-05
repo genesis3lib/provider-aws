@@ -32,7 +32,19 @@ variable "domain_base" {
 }
 
 variable "app_id" {
-  description = "Application ID for subdomain"
+  description = "Application/Project ID (may be useful for future use)"
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "backend_id" {
+  description = "Backend module ID for API subdomain"
+  type        = string
+  default     = "{{projectName}}"
+}
+
+variable "frontend_id" {
+  description = "Frontend module ID for UI subdomain"
   type        = string
   default     = "{{projectName}}"
 }
