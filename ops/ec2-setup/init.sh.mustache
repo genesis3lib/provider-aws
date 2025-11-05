@@ -207,12 +207,12 @@ echo "✅ Set SPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE"
 # Set APP_ENV_HOST and APP_ENV_UI based on environment
 if [ "$BASE_PROFILE" = "prod" ] || [ "$BASE_PROFILE" = "production" ]; then
     # Production environment - no environment prefix
-    APP_ENV_HOST="https://{{backendModule.moduleId}}-api.{{domain}}"
-    APP_ENV_UI="https://{{frontendModule.moduleId}}-ui.{{domain}}"
+    APP_ENV_HOST="https://{{projectName}}-api.{{domain}}"
+    APP_ENV_UI="https://{{projectName}}-ui.{{domain}}"
 else
     # Non-production environment - include environment prefix
-    APP_ENV_HOST="https://{{backendModule.moduleId}}-${BASE_PROFILE}-api.{{domain}}"
-    APP_ENV_UI="https://{{frontendModule.moduleId}}-${BASE_PROFILE}-ui.{{domain}}"
+    APP_ENV_HOST="https://{{projectName}}-${BASE_PROFILE}-api.{{domain}}"
+    APP_ENV_UI="https://{{projectName}}-${BASE_PROFILE}-ui.{{domain}}"
 fi
 
 echo "APP_ENV_HOST=$APP_ENV_HOST" >> "$TEMP_SPRING_ENV"
