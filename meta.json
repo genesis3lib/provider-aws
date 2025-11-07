@@ -31,7 +31,8 @@
       "default": "",
       "required": true,
       "description": "AWS account ID for resource deployment",
-      "category": "infrastructure"
+      "category": "infrastructure",
+      "gitStoreKey": "AWS_ACCOUNT_ID"
     },
     {
       "key": "awsAdminId",
@@ -40,7 +41,8 @@
       "default": "",
       "required": true,
       "description": "AWS admin IAM user access key ID for GitHub Actions",
-      "category": "infrastructure"
+      "category": "infrastructure",
+      "gitStoreKey": "AWS_ADMIN_ID"
     },
     {
       "key": "awsAdminSecret",
@@ -49,7 +51,8 @@
       "default": "",
       "required": true,
       "description": "AWS admin IAM user secret access key for GitHub Actions",
-      "category": "infrastructure"
+      "category": "infrastructure",
+      "gitStoreKey": "AWS_ADMIN_SECRET"
     },
     {
       "key": "instanceType",
