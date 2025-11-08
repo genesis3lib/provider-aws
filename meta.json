@@ -5,7 +5,7 @@
     "id": "extension-aws",
     "name": "AWS Infrastructure",
     "kind": "extension",
-    "layers": ["ops"],
+    "layers": ["ops", "cicd"],
     "type": "aws",
     "description": "Complete AWS infrastructure setup with Terraform, EC2 deployment, and multi-environment support",
     "version": "1.0.0",
@@ -81,7 +81,17 @@
       "remove": []
     },
     "layers": {
-      "ops": {}
+      "ops": {},
+      "cicd": {
+        "conditionalFiles": {
+          "ifBackendLayerPresent": {
+            "condition": "hasLayer('backend')",
+            "files": [
+              "cicd/.github/workflows/Code-320-server-ec2-pwd.yml.mustache"
+            ]
+          }
+        }
+      }
     },
     "postProcess": [
       {

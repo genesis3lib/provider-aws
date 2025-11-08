@@ -1,0 +1,208 @@
+name: Code-320-Server-Ec2-Pwd
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  id-token: write
+
+env:
+  TF_VERSION: "1.12.2"
+  AWS_REGION: {{region}}
+
+jobs:
+  server-operations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Env setup
+        run: |
+          
+          # Set environment variables
+          echo "BRANCH={{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" >> $GITHUB_ENV
+          if [[ "{{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" = "main" || "{{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" = "production" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          else
+            BRANCH_ENV=$(echo "{{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" | sed "s/\\//-/g")
+            echo "ENVIRONMENT=$BRANCH_ENV" >> $GITHUB_ENV
+          fi
+          
+          echo "✅ Environment setup completed: {{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}"
+
+      - name: Credential for AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::{{{githubVarsOpen}}} vars.AWS_ACCOUNT_ID {{{githubVarsClose}}}:role/{{projectName}}-{{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}-ops-deploy-ec2-role
+          aws-region: {{{githubVarsOpen}}} env.AWS_REGION  {{{githubVarsClose}}}
+
+      - name: Setup Environment
+        run: |
+          echo "Event name: {{{githubVarsOpen}}} github.event_name  {{{githubVarsClose}}}"
+          echo "Branch: {{{githubVarsOpen}}} env.BRANCH  {{{githubVarsClose}}}"
+          echo "Environment: {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: {{{githubVarsOpen}}} env.TF_VERSION  {{{githubVarsClose}}}
+          terraform_wrapper: false
+
+      - name: Get Terraform Outputs
+        run: |
+          cd {{opsModule.moduleId}}/terraform
+          echo "🔍 Getting Terraform outputs for {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}} environment..."
+          
+          # Initialize Terraform to access state
+          terraform init -backend-config=backend-${ENVIRONMENT}.hcl -input=false
+          
+          # Get the ops bucket name from Terraform outputs
+          OPS_BUCKET=$(terraform output -raw ops_bucket_name 2>/dev/null || echo "")
+          
+          if [ -z "$OPS_BUCKET" ]; then
+            echo "❌ Could not get ops bucket from Terraform outputs"
+            echo "🔍 Available Terraform outputs:"
+            terraform output
+            echo "⚠️ Infrastructure may not be deployed yet - run deploy_apply first"
+            exit 1
+          fi
+          
+          echo "✅ Found ops bucket: $OPS_BUCKET"
+          echo "OPS_BUCKET=$OPS_BUCKET" >> $GITHUB_ENV
+        env:
+          AWS_DEFAULT_REGION: {{{githubVarsOpen}}} env.AWS_REGION  {{{githubVarsClose}}}
+
+      - name: Get EC2 Instances by Tags
+        run: |
+          echo "🔍 Finding EC2 instances by tags..."
+          echo "Looking for instances with Project={{projectName}} and Environment={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}"
+          
+          # Query EC2 instances by tags
+          EC2_INSTANCES=$(aws ec2 describe-instances \
+            --filters \
+              "Name=tag:Project,Values={{projectName}}" \
+              "Name=tag:Environment,Values={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}" \
+              "Name=instance-state-name,Values=running" \
+            --query 'Reservations[*].Instances[*].InstanceId' \
+            --output text | tr '\n\t ' ',' | sed 's/,,*/,/g' | sed 's/^,//g' | sed 's/,$//g')
+          
+          if [ -n "${EC2_INSTANCES}" ] && [ "${EC2_INSTANCES}" != "" ]; then
+            echo "EC2_INSTANCES=${EC2_INSTANCES}" >> $GITHUB_ENV
+            echo "✅ Found running instances: ${EC2_INSTANCES}"
+          else
+            echo "❌ No running instances found with tags Project={{projectName}} and Environment={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}"
+            echo "This could indicate:"
+            echo "  1. Instances are still launching"
+            echo "  2. Instances failed to start properly" 
+            echo "  3. Infrastructure deployment is incomplete"
+            echo ""
+            echo "All instances in environment:"
+            aws ec2 describe-instances \
+              --filters \
+                "Name=tag:Project,Values={{projectName}}" \
+                "Name=tag:Environment,Values={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}" \
+              --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,State:State.Name,Name:Tags[?Key==`Name`].Value|[0]}' \
+              --output table || true
+            echo "⚠️ Skipping password setup - no instances to configure"
+            echo "SKIP_PASSWORD_SETUP=true" >> $GITHUB_ENV
+          fi
+
+
+      - name: Setup EC2 User Password for ttyS0 Access
+        if: env.SKIP_PASSWORD_SETUP != 'true'
+        run: |
+          echo "🔐 Setting up ec2-user password for ttyS0 SSH access..."
+          
+          # Generate a secure password
+          PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-20)
+          echo "Generated password for ec2-user: ${PASSWORD}"
+          
+          # Convert comma-separated instances to space-separated for AWS CLI
+          INSTANCE_LIST=$(echo "${EC2_INSTANCES}" | tr ',' ' ')
+          echo "Target instances: ${INSTANCE_LIST}"
+          
+          # Set password for ec2-user on all instances
+          echo "🔧 Setting ec2-user password on all instances..."
+          PASSWORD_COMMAND_ID=$(aws ssm send-command \
+            --instance-ids ${INSTANCE_LIST} \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "echo Setting up SSH password authentication for ec2-user",
+              "echo ec2-user:'${PASSWORD}' | sudo chpasswd",
+              "sudo usermod -U ec2-user",
+              "sudo sed -i s/PasswordAuthentication.*/PasswordAuthentication\\ yes/g /etc/ssh/sshd_config",
+              "sudo sed -i s/#PasswordAuthentication.*/PasswordAuthentication\\ yes/g /etc/ssh/sshd_config",
+              "sudo systemctl reload sshd",
+              "echo Password authentication enabled for SSH",
+              "echo Username: ec2-user",
+              "echo Password: '${PASSWORD}'"
+            ]' \
+            --timeout-seconds 300 \
+            --query 'Command.CommandId' \
+            --output text)
+          
+          echo "Password Setup Command ID: ${PASSWORD_COMMAND_ID}"
+          
+          # Wait for command completion
+          echo "⏳ Waiting for password setup to complete..."
+          
+          # Convert instances to array for status checking
+          IFS=' ' read -ra INSTANCE_ARRAY <<< "${INSTANCE_LIST}"
+          
+          # Wait for command completion on all instances
+          for i in {1..20}; do
+            ALL_COMPLETE=true
+            ALL_SUCCESS=true
+            
+            echo "=== Checking password setup status (attempt ${i}/20) ==="
+            
+            for INSTANCE in "${INSTANCE_ARRAY[@]}"; do
+              # Trim whitespace
+              INSTANCE=$(echo "${INSTANCE}" | xargs)
+              
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "${PASSWORD_COMMAND_ID}" \
+                --instance-id "${INSTANCE}" \
+                --query 'Status' \
+                --output text 2>/dev/null || echo "InProgress")
+              
+              echo "📊 Instance ${INSTANCE}: ${STATUS}"
+              
+              if [ "${STATUS}" = "Failed" ]; then
+                echo "❌ Password setup failed on instance ${INSTANCE}"
+                aws ssm get-command-invocation \
+                  --command-id "${PASSWORD_COMMAND_ID}" \
+                  --instance-id "${INSTANCE}" \
+                  --query 'StandardErrorContent' \
+                  --output text
+              elif [ "${STATUS}" != "Success" ]; then
+                ALL_SUCCESS=false
+                if [ "${STATUS}" = "InProgress" ]; then
+                  ALL_COMPLETE=false
+                fi
+              fi
+            done
+            
+            if [ "${ALL_SUCCESS}" = "true" ]; then
+              echo "✅ Password setup completed successfully on all instances"
+              echo "🔑 SSH Access Information:"
+              echo "  Username: ec2-user"
+              echo "  Password: ${PASSWORD}"
+              echo "  SSH Command: ssh ec2-user@<instance-ip>"
+              echo "  Console Access: Available via ttyS0"
+              break
+            fi
+            
+            if [ "${ALL_COMPLETE}" = "true" ]; then
+              echo "❌ Some instances completed but not all succeeded"
+              # Continue anyway, password setup is not critical
+              break
+            fi
+            
+            sleep 5
+          done
+          
+          echo "🔐 EC2 user password setup completed"
