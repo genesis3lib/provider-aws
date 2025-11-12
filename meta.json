@@ -13,6 +13,8 @@
     "tags": ["aws", "terraform", "infrastructure", "ec2", "ops"]
   },
 
+  "dependencies": {},
+
   "scaffoldConfigTemplate": [
     {
       "key": "awsRegion",
