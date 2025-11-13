@@ -13,6 +13,7 @@ output "cloudfront_domain_name" {
   value       = aws_cloudfront_distribution.client.domain_name
 }
 
+{{#hasBackend}}
 output "load_balancer_dns_name" {
   description = "Load balancer DNS name"
   value       = aws_lb.server.dns_name
@@ -22,6 +23,7 @@ output "load_balancer_zone_id" {
   description = "Load balancer zone ID"
   value       = aws_lb.server.zone_id
 }
+{{/hasBackend}}
 
 {{#hasDatabase}}
 {{#isPostgreSQL}}
@@ -103,6 +105,7 @@ output "database_endpoint" {
 {{/isNeo4j}}
 {{/hasDatabase}}
 
+{{#hasBackend}}
 output "autoscaling_group_name" {
   description = "Auto Scaling Group name"
   value       = aws_autoscaling_group.server.name
@@ -112,6 +115,7 @@ output "api_bucket_name" {
   description = "S3 bucket for API data, uploads, and application storage"
   value       = aws_s3_bucket.api.bucket
 }
+{{/hasBackend}}
 
 output "ops_bucket_name" {
   description = "S3 bucket for operations, deployment artifacts, JAR files, and scripts"

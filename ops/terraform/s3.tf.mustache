@@ -8,6 +8,7 @@ resource "aws_s3_bucket" "client" {
   })
 }
 
+{{#hasBackend}}
 # API bucket (for API-related files, uploads, data storage)
 resource "aws_s3_bucket" "api" {
   bucket = "${local.project_name}-${var.environment}-api"
@@ -18,6 +19,7 @@ resource "aws_s3_bucket" "api" {
     Purpose     = "api"
   })
 }
+{{/hasBackend}}
 
 # Operations bucket (consolidates deployment artifacts, JAR files, scripts)
 resource "aws_s3_bucket" "ops" {
@@ -38,12 +40,14 @@ resource "aws_s3_bucket_versioning" "client" {
   }
 }
 
+{{#hasBackend}}
 resource "aws_s3_bucket_versioning" "api" {
   bucket = aws_s3_bucket.api.id
   versioning_configuration {
     status = "Enabled"
   }
 }
+{{/hasBackend}}
 
 resource "aws_s3_bucket_versioning" "ops" {
   bucket = aws_s3_bucket.ops.id
@@ -63,6 +67,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "client" {
   }
 }
 
+{{#hasBackend}}
 resource "aws_s3_bucket_server_side_encryption_configuration" "api" {
   bucket = aws_s3_bucket.api.id
 
@@ -72,6 +77,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "api" {
     }
   }
 }
+{{/hasBackend}}
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "ops" {
   bucket = aws_s3_bucket.ops.id
@@ -93,6 +99,7 @@ resource "aws_s3_bucket_public_access_block" "client" {
   restrict_public_buckets = true
 }
 
+{{#hasBackend}}
 resource "aws_s3_bucket_public_access_block" "api" {
   bucket = aws_s3_bucket.api.id
 
@@ -101,6 +108,7 @@ resource "aws_s3_bucket_public_access_block" "api" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+{{/hasBackend}}
 
 resource "aws_s3_bucket_public_access_block" "ops" {
   bucket = aws_s3_bucket.ops.id
