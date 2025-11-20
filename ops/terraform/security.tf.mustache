@@ -146,12 +146,16 @@ resource "aws_secretsmanager_secret" "app_secrets" {
 
 resource "aws_secretsmanager_secret_version" "app_secrets" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
-  secret_string = jsonencode({
-    # Application secrets
-    JWT_SECRET_KEY = "eP97z7mC580VXn9piTDpcpPteP97z7mC580VXn9piTDpcpPtJLLC513NtvQRi61c"
-    API_KEY        = "rC6M5e7HIX8lD8ksWdc2DzyGdO3ApqAN5l1Bxa0cerJixDyE23397DhuHXwmhMBe"
-    ENCRYPTION_KEY = "3m4NKW712yh8bk75qSv1Zbvji841gJM8z2YD2pQde3MGotAET1h3fJ179dz0D5BV"
-
+  secret_string = jsonencode(merge(
+    {{#hasRuntimeSecrets}}
+    # Runtime secrets from GitHub Actions (passed as TF_VAR_ environment variables)
+    {
+{{#runtimeSecrets}}
+      {{key}} = var.runtime_secret_{{key}}{{^last}},{{/last}}
+{{/runtimeSecrets}}
+    },
+    {{/hasRuntimeSecrets}}
+    {
     # Database secrets
 {{#hasDatabase}}
 {{#isPostgreSQL}}
@@ -243,5 +247,17 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
     DB_NAME     = "{{projectName}}"
 {{/isNeo4j}}
 {{/hasDatabase}}
-  })
+    }
+  ))
 }
+
+{{#hasRuntimeSecrets}}
+# Variables for runtime secrets (passed from GitHub Actions via TF_VAR_ environment variables)
+{{#runtimeSecrets}}
+variable "runtime_secret_{{key}}" {
+  description = "Runtime secret: {{key}}"
+  type        = string
+  sensitive   = true
+}
+{{/runtimeSecrets}}
+{{/hasRuntimeSecrets}}
