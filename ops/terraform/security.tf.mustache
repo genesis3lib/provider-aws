@@ -105,9 +105,14 @@ resource "aws_security_group" "rds" {
 {{/hasDatabase}}
 
 {{#hasBackend}}
+# Terraform state bucket name (includes AWS account ID for global uniqueness)
+locals {
+  tfstate_bucket_name = "${local.project_name}-tfstate-${data.aws_caller_identity.current.account_id}"
+}
+
 # Fetch SSH public key from S3 using external data source (more reliable than aws_s3_object)
 data "external" "ssh_public_key" {
-  program = ["sh", "-c", "aws s3 cp s3://${local.project_name}-terraform-state/ssh/${var.environment}_key.pub - | jq -Rs '{key: .}'"]
+  program = ["sh", "-c", "aws s3 cp s3://${local.tfstate_bucket_name}/ssh/${var.environment}_key.pub - | jq -Rs '{key: .}'"]
 }
 
 # Create a local to validate and process the SSH key

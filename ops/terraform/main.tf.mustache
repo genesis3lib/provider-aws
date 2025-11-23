@@ -20,10 +20,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket  = "{{projectName}}-terraform-state"
+    # Bucket name configured via -backend-config during init
+    # Uses format: {{projectName}}-tfstate-${AWS_ACCOUNT_ID} for global uniqueness
     region  = "{{region}}"
     encrypt = true
-    # Key and DynamoDB table set via -backend-config during init
+    # Key, bucket, and DynamoDB table set via -backend-config during init
   }
 }
 

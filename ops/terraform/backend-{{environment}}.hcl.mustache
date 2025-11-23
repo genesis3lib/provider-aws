@@ -1,2 +1,4 @@
+# Note: bucket is passed dynamically during terraform init
+# Bucket name format: {{projectName}}-tfstate-${AWS_ACCOUNT_ID}
 key            = "infrastructure/{{environment}}.tfstate"
 dynamodb_table = "{{projectName}}-terraform-locks-{{environment}}"
