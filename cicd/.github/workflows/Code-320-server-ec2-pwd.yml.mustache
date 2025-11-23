@@ -55,9 +55,14 @@ jobs:
         run: |
           cd {{opsModule.moduleId}}/terraform
           echo "🔍 Getting Terraform outputs for {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}} environment..."
-          
+
+          # Get AWS account ID for state bucket name
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          STATE_BUCKET="{{projectName}}-tfstate-${AWS_ACCOUNT_ID}"
+          echo "Using state bucket: ${STATE_BUCKET}"
+
           # Initialize Terraform to access state
-          terraform init -backend-config=backend-${ENVIRONMENT}.hcl -input=false
+          terraform init -backend-config=backend-${ENVIRONMENT}.hcl -backend-config="bucket=${STATE_BUCKET}" -input=false
           
           # Get the ops bucket name from Terraform outputs
           OPS_BUCKET=$(terraform output -raw ops_bucket_name 2>/dev/null || echo "")
