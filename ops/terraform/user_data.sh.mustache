@@ -19,11 +19,12 @@ echo "AWS_REGION: $AWS_REGION"
 echo "PROJECT: $PROJECT_NAME"
 
 # Basic system setup - detect OS and use appropriate package manager
-# Note: Don't install 'curl' on AL2023 - it has curl-minimal pre-installed which conflicts with curl
+# Note: Don't install 'curl' on AL2023 - it has curl-minimal pre-installed which conflicts with full curl package
 echo "=== Installing basic system packages ==="
 if grep -q "Amazon Linux 2023" /etc/os-release 2>/dev/null; then
     echo "Detected Amazon Linux 2023"
     dnf update -y
+    # Note: curl-minimal is pre-installed on AL2023 and provides the curl command - do NOT install curl package
     dnf install -y awscli jq wget unzip
 else
     echo "Detected Amazon Linux 2 or other"
