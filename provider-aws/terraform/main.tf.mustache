@@ -65,7 +65,8 @@ locals {
     ManagedBy   = "terraform"
   }
 
-  # Domain configuration with environment-specific prefix
-  ui_domain = var.environment == "production" ? "${var.app_id}-ui.${var.domain_base}" : "${var.app_id}-${var.environment}-ui.${var.domain_base}"
-  api_domain = var.environment == "production" ? "${var.app_id}-api.${var.domain_base}" : "${var.app_id}-${var.environment}-api.${var.domain_base}"
+  # Domain configuration with environment-specific suffix
+  # Pattern: {projectName}-ui[-{env}].{domain} and {projectName}-api[-{env}].{domain}
+  ui_domain = var.environment == "production" ? "${var.app_id}-ui.${var.domain_base}" : "${var.app_id}-ui-${var.environment}.${var.domain_base}"
+  api_domain = var.environment == "production" ? "${var.app_id}-api.${var.domain_base}" : "${var.app_id}-api-${var.environment}.${var.domain_base}"
 }
