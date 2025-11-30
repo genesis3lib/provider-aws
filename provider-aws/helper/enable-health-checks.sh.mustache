@@ -2,7 +2,7 @@
 set -e
 
 PROJECT_NAME="{{projectName}}"
-ENVIRONMENT="${1:-production}"  # Default to production if not specified
+ENVIRONMENT="${1:-prod}"  # Default to prod if not specified
 ASG_NAME="$PROJECT_NAME-$ENVIRONMENT-asg"
 TG_NAME="$PROJECT_NAME-$ENVIRONMENT-tg"
 REGION="{{region}}"
@@ -10,6 +10,8 @@ MAX_RETRIES=30
 RETRY_INTERVAL=10
 
 echo "🔍 Enabling ELB health checks for Auto Scaling Group: $ASG_NAME"
+echo "   Region: $REGION"
+echo "   Target Group Name: $TG_NAME"
 
 # Get target group ARN
 echo "📋 Finding target group..."
@@ -17,10 +19,14 @@ TG_ARN=$(aws elbv2 describe-target-groups \
     --names "$TG_NAME" \
     --region "$REGION" \
     --query 'TargetGroups[0].TargetGroupArn' \
-    --output text 2>/dev/null || echo "")
+    --output text 2>&1) || true
 
-if [ -z "$TG_ARN" ] || [ "$TG_ARN" == "None" ]; then
-    echo "❌ Target group $TG_NAME not found"
+if [ -z "$TG_ARN" ] || [ "$TG_ARN" == "None" ] || [[ "$TG_ARN" == *"error"* ]] || [[ "$TG_ARN" == *"Error"* ]]; then
+    echo "❌ Target group $TG_NAME not found in region $REGION"
+    echo "   AWS CLI output: $TG_ARN"
+    echo ""
+    echo "   Debug: Listing all target groups in region..."
+    aws elbv2 describe-target-groups --region "$REGION" --query 'TargetGroups[*].TargetGroupName' --output text 2>&1 || true
     exit 1
 fi
 echo "   Target group ARN: $TG_ARN"
