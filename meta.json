@@ -61,7 +61,7 @@
       "label": "EC2 Instance Type",
       "type": "select",
       "options": ["t2.nano", "t2.micro", "t2.small", "t2.medium"],
-      "default": "t2.micro",
+      "default": "t2.nano",
       "required": true,
       "description": "EC2 instance type for application servers",
       "category": "infrastructure"
