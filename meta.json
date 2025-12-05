@@ -60,10 +60,10 @@
       "key": "instanceType",
       "label": "EC2 Instance Type",
       "type": "select",
-      "options": ["t2.nano", "t2.micro", "t2.small", "t2.medium"],
-      "default": "t2.nano",
+      "options": ["t3.micro", "t3.small", "t3.medium", "t3.large"],
+      "default": "t3.small",
       "required": true,
-      "description": "EC2 instance type for application servers",
+      "description": "EC2 instance type for application servers. t3.small (2GB RAM) recommended for POC/dev workloads",
       "category": "infrastructure"
     },
     {
@@ -106,16 +106,16 @@
 
   "environments": {
     "dev": {
-      "instanceType": "t2.nano",
+      "instanceType": "t3.small",
       "databaseClass": "db.t3.micro"
     },
     "staging": {
-      "instanceType": "t2.micro",
-      "databaseClass": "db.t3.micro"
+      "instanceType": "t3.small",
+      "databaseClass": "db.t3.small"
     },
     "prod": {
-      "instanceType": "t2.small",
-      "databaseClass": "db.t3.small"
+      "instanceType": "t3.medium",
+      "databaseClass": "db.t3.medium"
     }
   },
 
