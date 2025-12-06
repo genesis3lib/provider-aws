@@ -21,6 +21,13 @@
       "label": "AWS Region",
       "type": "select",
       "options": ["us-east-1", "us-west-1", "us-west-2", "eu-west-1", "ap-southeast-1"],
+      "optionNotes": {
+        "us-east-1": { "notes": "N. Virginia - largest, most services" },
+        "us-west-1": { "notes": "N. California - recommended" },
+        "us-west-2": { "notes": "Oregon - good for west coast" },
+        "eu-west-1": { "notes": "Ireland - Europe" },
+        "ap-southeast-1": { "notes": "Singapore - Asia Pacific" }
+      },
       "default": "us-west-1",
       "required": true,
       "description": "AWS region for deployment",
