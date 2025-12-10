@@ -59,6 +59,7 @@
       "type": "password",
       "default": "",
       "required": true,
+      "secret": true,
       "description": "AWS admin IAM user secret access key for GitHub Actions",
       "category": "infrastructure",
       "gitStoreKey": "AWS_ADMIN_SECRET"
