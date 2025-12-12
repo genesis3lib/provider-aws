@@ -19,98 +19,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Env setup
-        run: |
-          
-          # Set environment variables
-          echo "BRANCH={{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" >> $GITHUB_ENV
-          if [[ "{{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" = "main" || "{{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" = "production" ]]; then
-            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
-          else
-            BRANCH_ENV=$(echo "{{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}" | sed "s/\\//-/g")
-            echo "ENVIRONMENT=$BRANCH_ENV" >> $GITHUB_ENV
-          fi
-          
-          echo "✅ Environment setup completed: {{{githubVarsOpen}}} github.ref_name  {{{githubVarsClose}}}"
-
-      - name: Credential for AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::{{{githubVarsOpen}}} vars.AWS_ACCOUNT_ID {{{githubVarsClose}}}:role/{{projectName}}-{{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}-ops-deploy-ec2-role
-          aws-region: {{{githubVarsOpen}}} env.AWS_REGION  {{{githubVarsClose}}}
-
       - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/aws-credentials
+        with:
+          account-id: {{{githubVarsOpen}}} vars.AWS_ACCOUNT_ID {{{githubVarsClose}}}
+          role-name: {{projectName}}-{{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}-ops-deploy-ec2-role
+
+      - name: Display Environment Info
         run: |
           echo "Event name: {{{githubVarsOpen}}} github.event_name  {{{githubVarsClose}}}"
           echo "Branch: {{{githubVarsOpen}}} env.BRANCH  {{{githubVarsClose}}}"
           echo "Environment: {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}"
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: {{{githubVarsOpen}}} env.TF_VERSION  {{{githubVarsClose}}}
-          terraform_wrapper: false
-
       - name: Get Terraform Outputs
+        uses: ./.github/actions/terraform-outputs
+        with:
+          terraform-dir: {{opsModule.moduleId}}/terraform
+          environment: {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}
+          project-name: {{projectName}}
+
+      - name: Discover EC2 Instances
+        id: ec2-discovery
+        uses: ./.github/actions/ec2-discovery
+        with:
+          project-name: {{projectName}}
+          environment: {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}
+          fail-if-empty: 'false'
+
+      - name: Check if instances found
         run: |
-          cd {{opsModule.moduleId}}/terraform
-          echo "🔍 Getting Terraform outputs for {{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}} environment..."
-
-          # Get AWS account ID for state bucket name
-          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          STATE_BUCKET="{{projectName}}-tfstate-${AWS_ACCOUNT_ID}"
-          echo "Using state bucket: ${STATE_BUCKET}"
-
-          # Initialize Terraform to access state
-          terraform init -backend-config=backend-${ENVIRONMENT}.hcl -backend-config="bucket=${STATE_BUCKET}" -input=false
-          
-          # Get the ops bucket name from Terraform outputs
-          OPS_BUCKET=$(terraform output -raw ops_bucket_name 2>/dev/null || echo "")
-          
-          if [ -z "$OPS_BUCKET" ]; then
-            echo "❌ Could not get ops bucket from Terraform outputs"
-            echo "🔍 Available Terraform outputs:"
-            terraform output
-            echo "⚠️ Infrastructure may not be deployed yet - run deploy_apply first"
-            exit 1
-          fi
-          
-          echo "✅ Found ops bucket: $OPS_BUCKET"
-          echo "OPS_BUCKET=$OPS_BUCKET" >> $GITHUB_ENV
-        env:
-          AWS_DEFAULT_REGION: {{{githubVarsOpen}}} env.AWS_REGION  {{{githubVarsClose}}}
-
-      - name: Get EC2 Instances by Tags
-        run: |
-          echo "🔍 Finding EC2 instances by tags..."
-          echo "Looking for instances with Project={{projectName}} and Environment={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}"
-          
-          # Query EC2 instances by tags
-          EC2_INSTANCES=$(aws ec2 describe-instances \
-            --filters \
-              "Name=tag:Project,Values={{projectName}}" \
-              "Name=tag:Environment,Values={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}" \
-              "Name=instance-state-name,Values=running" \
-            --query 'Reservations[*].Instances[*].InstanceId' \
-            --output text | tr '\n\t ' ',' | sed 's/,,*/,/g' | sed 's/^,//g' | sed 's/,$//g')
-          
-          if [ -n "${EC2_INSTANCES}" ] && [ "${EC2_INSTANCES}" != "" ]; then
-            echo "EC2_INSTANCES=${EC2_INSTANCES}" >> $GITHUB_ENV
-            echo "✅ Found running instances: ${EC2_INSTANCES}"
-          else
-            echo "❌ No running instances found with tags Project={{projectName}} and Environment={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}"
-            echo "This could indicate:"
-            echo "  1. Instances are still launching"
-            echo "  2. Instances failed to start properly" 
-            echo "  3. Infrastructure deployment is incomplete"
-            echo ""
-            echo "All instances in environment:"
-            aws ec2 describe-instances \
-              --filters \
-                "Name=tag:Project,Values={{projectName}}" \
-                "Name=tag:Environment,Values={{{githubVarsOpen}}} env.ENVIRONMENT  {{{githubVarsClose}}}" \
-              --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,State:State.Name,Name:Tags[?Key==`Name`].Value|[0]}' \
-              --output table || true
+          if [ -z "${EC2_INSTANCES}" ]; then
             echo "⚠️ Skipping password setup - no instances to configure"
             echo "SKIP_PASSWORD_SETUP=true" >> $GITHUB_ENV
           fi
