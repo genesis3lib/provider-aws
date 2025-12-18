@@ -63,7 +63,25 @@ for instance_id in $INSTANCE_IDS; do
         --query 'Command.CommandId' \
         --output text)
 
-    sleep 5
+    # Wait for SSM command to complete (max 10 minutes)
+    echo "   ⏳ Waiting for SSM command to complete..."
+    for attempt in {1..120}; do
+        status=$(aws ssm get-command-invocation \
+            --command-id "$command_id" \
+            --instance-id "$instance_id" \
+            --region "$REGION" \
+            --query 'Status' \
+            --output text 2>/dev/null || echo "Pending")
+
+        if [ "$status" = "Success" ] || [ "$status" = "Failed" ]; then
+            break
+        fi
+
+        if [ "$attempt" -eq 120 ]; then
+            echo "   ⚠️ SSM command timed out (status: $status)"
+        fi
+        sleep 5
+    done
 
     result=$(aws ssm get-command-invocation \
         --command-id "$command_id" \
