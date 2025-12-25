@@ -7,6 +7,71 @@ resource "aws_cloudfront_origin_access_control" "client" {
   signing_protocol                  = "sigv4"
 }
 
+# S3 bucket for CloudFront access logs (production only)
+resource "aws_s3_bucket" "cloudfront_logs" {
+  count  = var.environment == "production" ? 1 : 0
+  bucket = "${local.project_name}-${var.environment}-cf-logs-${data.aws_caller_identity.current.account_id}"
+
+  tags = merge(local.common_tags, {
+    Name = "${local.project_name}-${var.environment}-cf-logs"
+  })
+}
+
+resource "aws_s3_bucket_ownership_controls" "cloudfront_logs" {
+  count  = var.environment == "production" ? 1 : 0
+  bucket = aws_s3_bucket.cloudfront_logs[0].id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "cloudfront_logs" {
+  count      = var.environment == "production" ? 1 : 0
+  depends_on = [aws_s3_bucket_ownership_controls.cloudfront_logs]
+  bucket     = aws_s3_bucket.cloudfront_logs[0].id
+  acl        = "private"
+}
+
+resource "aws_s3_bucket_public_access_block" "cloudfront_logs" {
+  count  = var.environment == "production" ? 1 : 0
+  bucket = aws_s3_bucket.cloudfront_logs[0].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "cloudfront_logs" {
+  count  = var.environment == "production" ? 1 : 0
+  bucket = aws_s3_bucket.cloudfront_logs[0].id
+
+  rule {
+    id     = "cloudfront_logs_lifecycle"
+    status = "Enabled"
+
+    filter {
+      prefix = "cf-logs/"
+    }
+
+    # Transition to Infrequent Access after 30 days
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+
+    # Expire logs after 90 days
+    expiration {
+      days = 90
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "client" {
   origin {
     domain_name              = aws_s3_bucket.client.bucket_regional_domain_name
@@ -79,6 +144,16 @@ resource "aws_cloudfront_distribution" "client" {
     for_each = var.certificate_arn == "" ? [1] : []
     content {
       cloudfront_default_certificate = true
+    }
+  }
+
+  # Enable access logging for production environments
+  dynamic "logging_config" {
+    for_each = var.environment == "production" ? [1] : []
+    content {
+      include_cookies = false
+      bucket          = aws_s3_bucket.cloudfront_logs[0].bucket_domain_name
+      prefix          = "cf-logs/"
     }
   }
 

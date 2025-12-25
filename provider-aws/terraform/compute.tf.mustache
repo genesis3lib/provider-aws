@@ -153,8 +153,10 @@ resource "aws_autoscaling_group" "server" {
   vpc_zone_identifier       = aws_subnet.public[*].id
   {{/useNatGateway}}
   target_group_arns         = [aws_lb_target_group.server.arn]
-  health_check_type         = "EC2"
-  health_check_grace_period = 2592000
+  # Use ELB health checks to ensure instances are actually serving traffic
+  # Grace period of 300s allows Java/Spring apps to fully start before health checks begin
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
 
   min_size         = var.min_size
   max_size         = var.max_size
